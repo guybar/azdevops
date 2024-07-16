@@ -19,8 +19,8 @@ variables:
   JF_GIT_PROVIDER: 'azureRepos'
   
 jobs:
-- deployment: NPM_PIPELINE
-  displayName: End to End NPM pipeline
+- deployment: MVN_PIPELINE
+  displayName: End to End MVN pipeline
   environment: 
     name: demo
     resourceType: virtualMachine
