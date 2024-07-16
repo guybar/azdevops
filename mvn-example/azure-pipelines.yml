@@ -1,0 +1,120 @@
+# Node.js
+# Build a general Node.js project with npm.
+# Add steps that analyze code, save build artifacts, deploy, and more:
+# https://docs.microsoft.com/azure/devops/pipelines/languages/javascript
+
+trigger:
+- main
+
+pool:
+  vmImage: ubuntu-latest
+
+variables:
+  # Predefined Azure Pipelines variables. There's no need to modify them.
+  JF_GIT_PROJECT: $(System.TeamProject)
+  JF_GIT_REPO: $(Build.Repository.Name)
+  JF_GIT_API_ENDPOINT: $(System.CollectionUri)
+  JF_GIT_BASE_BRANCH: $(Build.SourceBranchName)
+  JF_GIT_OWNER: $(System.TeamProject)
+  JF_GIT_PROVIDER: 'azureRepos'
+  
+jobs:
+- deployment: NPM_PIPELINE
+  displayName: End to End NPM pipeline
+  environment: 
+    name: demo
+    resourceType: virtualMachine
+    resourceName: nagag-ado
+  strategy:
+    runOnce:
+      deploy:   
+          steps:
+            - checkout: self
+            # - task: JfrogCliV2@1
+            #   displayName: "Audit Scan - Scan Git repo"
+            #   env:
+            #     JAVA_HOME: /usr/lib/jvm/java-11-openjdk-amd64
+            #     M2_HOME: /usr/share/maven
+            #   inputs:
+            #     jfrogPlatformConnection: 'psemea'
+            #     command: |
+            #       jf rt ping
+            #       jf mvnc --repo-deploy-releases ws-maven-dev --repo-deploy-snapshots ws-maven-dev --repo-resolve-snapshots ws-maven-dev --repo-resolve-releases ws-maven-dev --use-wrapper 
+            #       jf audit .
+            - task: JFrogAudit@1
+              inputs:
+                xrayConnection: 'psemeaxray'
+                watchesSource: 'none'
+                licenses: true
+            - task: JFrogMaven@1
+              inputs:
+                mavenPomFile: 'pom.xml'
+                goals: 'clean install'
+                artifactoryResolverService: 'psemeart'
+                targetResolveReleaseRepo: 'ws-maven-dev'
+                targetResolveSnapshotRepo: 'ws-maven-dev'
+                artifactoryDeployService: 'psemeart'
+                targetDeployReleaseRepo: 'ws-maven-dev'
+                targetDeploySnapshotRepo: 'ws-maven-dev'
+                collectBuildInfo: true
+                buildName: '$(Build.DefinitionName)'
+                buildNumber: '$(Build.BuildNumber)'
+                projectKey: 'ws'
+                includeEnvVars: true
+                javaHomeOption: 'JDKVersion'
+            - task: JFrogPublishBuildInfo@1
+              inputs:
+                artifactoryConnection: 'psemeart'
+                buildName: '$(Build.DefinitionName)'
+                buildNumber: '$(Build.BuildNumber)'
+                projectKey: 'ws'
+            # - task: JfrogCliV2@1
+            #   displayName: "MVN Install"
+            #   env:
+            #     JAVA_HOME: /usr/lib/jvm/java-11-openjdk-amd64
+            #     M2_HOME: /usr/share/maven
+            #   inputs:
+            #     jfrogPlatformConnection: 'psemea'
+            #     command: |
+            #       jf rt ping
+            #       jf mvnc --repo-deploy-releases ws-maven-dev --repo-deploy-snapshots ws-maven-dev --repo-resolve-snapshots ws-maven-dev --repo-resolve-releases ws-maven-dev --use-wrapper 
+            #       jf mvn install --build-name mvn-build --build-number $(Build.BuildNumber) --project ws
+
+            # - task: JfrogCliV2@1
+            #   displayName: "MVN Deply"
+            #   env:
+            #     JAVA_HOME: /usr/lib/jvm/java-11-openjdk-amd64
+            #     M2_HOME: /usr/share/maven
+            #   inputs:
+            #     jfrogPlatformConnection: 'psemea'
+            #     command: |
+            #       jf rt ping
+            #       jf mvnc --repo-deploy-releases ws-maven-dev --repo-deploy-snapshots ws-maven-dev --repo-resolve-snapshots ws-maven-dev --repo-resolve-releases ws-maven-dev --use-wrapper 
+            #       jf mvn deploy --build-name mvn-build --build-number $(Build.BuildNumber) --project ws
+            # - task: JfrogCliV2@1
+            #   displayName: "MVN BuildInfo"
+            #   inputs:
+            #     jfrogPlatformConnection: 'psemea'
+            #     command: |
+            #       jf mvnc --repo-deploy-releases ws-maven-dev --repo-deploy-snapshots ws-maven-dev --repo-resolve-snapshots ws-maven-dev --repo-resolve-releases ws-maven-dev --use-wrapper                  
+            #       jf rt bce mvn-build $(Build.BuildNumber) --project ws
+            #       jf rt bag mvn-build $(Build.BuildNumber) --project ws
+            #       jf rt bp mvn-build $(Build.BuildNumber) --project ws
+            - task: CmdLine@2
+              displayName: "Generate RBV2 Spec file"
+              inputs:
+                script: |
+                  echo "{
+                    \"files\": [
+                      {
+                        \"build\": \"$(Build.DefinitionName)/$(Build.BuildNumber)\",
+                        \"includeDeps\": \"false\",
+                        \"project\": \"ws\"
+                      }
+                    ]
+                  }" > rbv2.json
+            - task: JfrogCliV2@1
+              displayName: "create Release bundle V2"
+              inputs:
+                jfrogPlatformConnection: 'psemea'
+                command: 'jf rbc --spec rbv2.json --signing-key rbv2psemea --project ws $(Build.DefinitionName) $(Build.BuildNumber)'

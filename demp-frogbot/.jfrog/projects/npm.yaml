@@ -1,0 +1,8 @@
+version: 1
+type: npm
+resolver:
+    repo: ws-dev-npm
+    serverId: psemea
+deployer:
+    repo: ws-dev-npm
+    serverId: psemea
