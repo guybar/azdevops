@@ -16,7 +16,7 @@ variables:
   # Predefined Azure Pipelines variables. There's no need to modify them.
   JF_GIT_PROJECT: naga08
   JF_GIT_REPO: azdevops
-  # JF_GIT_API_ENDPOINT: $(System.CollectionUri)
+  JF_GIT_API_ENDPOINT: https://api.github.com
   JF_GIT_BASE_BRANCH: main
   JF_GIT_OWNER: $(System.TeamProject)
   JF_GIT_PROVIDER: 'azureRepos'
